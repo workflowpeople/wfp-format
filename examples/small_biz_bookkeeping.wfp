@@ -1,0 +1,151 @@
+{
+  "meta": {
+    "exported_at": "2026-04-03T00:00:00.000Z",
+    "workspace": "Small Biz Bookkeeping"
+  },
+  "app_workflows": [
+    {
+      "workflow_id": "wf-view-reports",
+      "name": "View Financial Reports",
+      "description": "## Purpose\nGenerates and displays the three core financial statements from your General Ledger data. No AI/LLM required.\n\n## When to use\n- Any time you want to see your current financial position\n- At month-end or quarter-end for a quick snapshot\n- To verify data after posting journal entries\n\n## Steps\n1. Generate Profit & Loss (Income Statement) for Q1 2025\n2. Generate Balance Sheet as of March 31, 2025\n3. Generate Cash Flow Statement for Q1 2025\n\n## Outputs\nAll three reports appear directly in the chat as formatted tables. No downloads needed — just scroll through the results.",
+      "type": "automation",
+      "nodes": "[{\"node_id\":\"node-start\",\"workflow_id\":\"wf-view-reports\",\"type\":\"tool\",\"label\":\"Start\",\"tool_id\":\"utils_workflow_start\",\"toolConfig\":{},\"toolParameters\":{},\"step_order\":1},{\"node_id\":\"node-pl\",\"workflow_id\":\"wf-view-reports\",\"type\":\"tool\",\"label\":\"Profit & Loss\",\"tool_id\":\"gl_report_pl\",\"toolParameters\":{\"from_date\":\"2025-01-01\",\"to_date\":\"2025-03-31\"},\"workflowMgmt\":{},\"step_order\":2},{\"node_id\":\"node-bs\",\"workflow_id\":\"wf-view-reports\",\"type\":\"tool\",\"label\":\"Balance Sheet\",\"tool_id\":\"gl_report_bs\",\"toolParameters\":{\"as_of_date\":\"2025-03-31\"},\"workflowMgmt\":{},\"step_order\":3},{\"node_id\":\"node-cf\",\"workflow_id\":\"wf-view-reports\",\"type\":\"tool\",\"label\":\"Cash Flow\",\"tool_id\":\"gl_report_cf\",\"toolParameters\":{\"from_date\":\"2025-01-01\",\"to_date\":\"2025-03-31\"},\"workflowMgmt\":{},\"step_order\":4},{\"node_id\":\"node-end\",\"workflow_id\":\"wf-view-reports\",\"type\":\"end\",\"label\":\"Done\",\"tool_id\":\"utils_workflow_end\",\"step_order\":5}]",
+      "edges": "[{\"workflow_id\":\"wf-view-reports\",\"edge_id\":\"edge-01\",\"source_node_id\":\"node-start\",\"target_node_id\":\"node-pl\"},{\"workflow_id\":\"wf-view-reports\",\"edge_id\":\"edge-02\",\"source_node_id\":\"node-pl\",\"target_node_id\":\"node-bs\"},{\"workflow_id\":\"wf-view-reports\",\"edge_id\":\"edge-03\",\"source_node_id\":\"node-bs\",\"target_node_id\":\"node-cf\"},{\"workflow_id\":\"wf-view-reports\",\"edge_id\":\"edge-04\",\"source_node_id\":\"node-cf\",\"target_node_id\":\"node-end\"}]",
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z",
+      "version": 1,
+      "snapshot_data": null,
+      "builder_chat": null,
+      "summary": "Generates P&L, Balance Sheet, and Cash Flow reports from pre-loaded GL data. No AI key required — run immediately to see your financials."
+    },
+    {
+      "workflow_id": "wf-expense-report",
+      "name": "Expense Categorization",
+      "description": "## Purpose\nUses AI to categorize bank and credit card transactions against the chart of accounts and generates a spending summary by GL account.\n\n## When to use\n- After downloading new bank statements\n- To prepare data for month-end close\n- For ad-hoc spending analysis\n\n## Requirements\n- LLM API key configured\n- Bank transaction data loaded as `checking` and/or `credit_card`\n\n## Steps\n1. Load bank transaction data from workspace\n2. AI categorizes each transaction to a GL account\n3. Generate categorized expense report\n4. Download report as HTML\n\n## Outputs\n- Categorized transaction list with GL account assignments\n- Expense summary by account\n- Downloadable HTML report",
+      "type": "automation",
+      "nodes": "[{\"workflow_id\":\"wf-expense-report\",\"node_id\":\"node-start\",\"type\":\"tool\",\"label\":\"Start\",\"tool_id\":\"utils_workflow_start\",\"step_order\":1},{\"workflow_id\":\"wf-expense-report\",\"node_id\":\"node-categorize\",\"type\":\"tool\",\"label\":\"Categorize Transactions\",\"tool_id\":\"llm_step\",\"workflowMgmt\":{\"chatMsgBody\":\"Transactions categorized.\"},\"toolParameters\":{\"data\":\"{{[checking]}}\\n{{[credit_card]}}\",\"instructions\":\"Categorize each transaction to the appropriate GL expense account. Available accounts: Rent (5000), Utilities (5010), Office Supplies (5020), Software & Subscriptions (5030), Insurance (5040), Professional Services (5050), Marketing (5060), Travel (5070), Meals & Entertainment (5080), Payroll (5090), Miscellaneous (5900). For income: Service Revenue (4000), Product Revenue (4100). Output a JSON array: [ { \\\"date\\\": \\\"...\\\", \\\"description\\\": \\\"...\\\", \\\"amount\\\": number, \\\"account\\\": \\\"GL Account Name\\\", \\\"account_id\\\": \\\"5000\\\", \\\"confidence\\\": \\\"high|medium|low\\\" } ]. No explanation, just JSON.\",\"context\":\"Small service business. Amounts are negative for expenses, positive for income.\"},\"step_order\":2},{\"workflow_id\":\"wf-expense-report\",\"node_id\":\"node-report\",\"type\":\"tool\",\"label\":\"Generate Expense Report\",\"tool_id\":\"ctool-expense-html\",\"workflowMgmt\":{},\"toolParameters\":{\"categorized_json\":\"{{llm_result_data}}\"},\"step_order\":3},{\"workflow_id\":\"wf-expense-report\",\"node_id\":\"node-dl\",\"type\":\"tool\",\"label\":\"Download Report\",\"tool_id\":\"util_chat_download\",\"workflowMgmt\":{},\"toolParameters\":{\"data\":\"{{html_report}}\",\"filename\":\"expense_report.html\",\"label\":\"Download Expense Report\"},\"step_order\":4},{\"workflow_id\":\"wf-expense-report\",\"node_id\":\"node-end\",\"type\":\"end\",\"label\":\"End\",\"tool_id\":\"utils_workflow_end\",\"step_order\":5}]",
+      "edges": "[{\"workflow_id\":\"wf-expense-report\",\"edge_id\":\"edge-01\",\"source_node_id\":\"node-start\",\"target_node_id\":\"node-categorize\"},{\"workflow_id\":\"wf-expense-report\",\"edge_id\":\"edge-02\",\"source_node_id\":\"node-categorize\",\"target_node_id\":\"node-report\"},{\"workflow_id\":\"wf-expense-report\",\"edge_id\":\"edge-03\",\"source_node_id\":\"node-report\",\"target_node_id\":\"node-dl\"},{\"workflow_id\":\"wf-expense-report\",\"edge_id\":\"edge-04\",\"source_node_id\":\"node-dl\",\"target_node_id\":\"node-end\"}]",
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z",
+      "version": 1,
+      "snapshot_data": null,
+      "builder_chat": null,
+      "summary": "Uses AI to categorize bank and credit card transactions to GL accounts, then generates a downloadable expense summary report."
+    },
+    {
+      "workflow_id": "wf-invoice-tracker",
+      "name": "Invoice & AR Tracker",
+      "description": "## Purpose\nTracks outstanding invoices, aging, and payment status. Generates an accounts receivable report and flags overdue invoices. No AI/LLM required.\n\n## When to use\n- Weekly to monitor outstanding invoices\n- When following up on late payments\n- At month-end for AR aging analysis\n\n## Requirements\n- Invoice data loaded as `invoices` (CSV: invoice_id, client, amount, issue_date, due_date, status)\n\n## Steps\n1. Load invoice data from workspace\n2. Calculate aging buckets (current, 30, 60, 90+ days)\n3. Generate styled AR aging report\n4. Download report as HTML\n\n## Outputs\n- AR aging summary with colored buckets\n- Overdue invoice list with priority flags\n- Downloadable HTML report",
+      "type": "automation",
+      "nodes": "[{\"node_id\":\"node-start\",\"workflow_id\":\"wf-invoice-tracker\",\"type\":\"tool\",\"label\":\"Start\",\"tool_id\":\"utils_workflow_start\",\"toolConfig\":{},\"toolParameters\":{},\"step_order\":1},{\"workflow_id\":\"wf-invoice-tracker\",\"node_id\":\"node-aging\",\"type\":\"tool\",\"label\":\"Calculate AR Aging\",\"tool_id\":\"ctool-ar-aging\",\"workflowMgmt\":{\"chatMsgBody\":\"AR aging calculated.\"},\"step_order\":2,\"toolParameters\":{\"invoices_data\":\"{{[invoices]}}\"}},{\"workflow_id\":\"wf-invoice-tracker\",\"node_id\":\"node-report\",\"type\":\"tool\",\"label\":\"Generate AR Report\",\"tool_id\":\"ctool-ar-html\",\"workflowMgmt\":{},\"step_order\":3,\"toolParameters\":{\"aging_data\":\"{{aging_data}}\"}},{\"workflow_id\":\"wf-invoice-tracker\",\"node_id\":\"node-dl\",\"type\":\"tool\",\"label\":\"Download Report\",\"tool_id\":\"util_chat_download\",\"workflowMgmt\":{},\"step_order\":4,\"toolParameters\":{\"data\":\"{{html_report}}\",\"filename\":\"ar_aging.html\",\"label\":\"Download AR Report\"}},{\"workflow_id\":\"wf-invoice-tracker\",\"node_id\":\"node-end\",\"type\":\"end\",\"label\":\"End\",\"tool_id\":\"utils_workflow_end\",\"step_order\":5}]",
+      "edges": "[{\"workflow_id\":\"wf-invoice-tracker\",\"edge_id\":\"edge-01\",\"source_node_id\":\"node-start\",\"target_node_id\":\"node-aging\"},{\"workflow_id\":\"wf-invoice-tracker\",\"edge_id\":\"edge-02\",\"source_node_id\":\"node-aging\",\"target_node_id\":\"node-report\"},{\"workflow_id\":\"wf-invoice-tracker\",\"edge_id\":\"edge-03\",\"source_node_id\":\"node-report\",\"target_node_id\":\"node-dl\"},{\"workflow_id\":\"wf-invoice-tracker\",\"edge_id\":\"edge-04\",\"source_node_id\":\"node-dl\",\"target_node_id\":\"node-end\"}]",
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z",
+      "version": 1,
+      "snapshot_data": null,
+      "builder_chat": null,
+      "summary": "Tracks outstanding invoices and calculates AR aging buckets. No AI key required — run weekly to monitor payments."
+    }
+  ],
+  "app_custom_tools": [
+    {
+      "tool_id": "ctool-import-txns",
+      "name": "Import Bank Transactions",
+      "description": "Imports and categorizes bank and credit card transactions for month-end processing.",
+      "description_md": "Combines checking and credit card CSVs, deduplicates, and counts transactions for downstream processing.",
+      "category": "bookkeeping",
+      "code": "const checking = api.getParameter('checking_data') || '';\nconst creditCard = api.getParameter('credit_card_data') || '';\n\nconst checkingLines = checking.split('\\n').slice(1).filter(l => l.trim());\nconst ccLines = creditCard.split('\\n').slice(1).filter(l => l.trim());\n\nconst summary = {\n  checking_count: checkingLines.length,\n  credit_card_count: ccLines.length,\n  total: checkingLines.length + ccLines.length\n};\n\napi.setParameter('categorized_data', JSON.stringify(summary));\napi.setParameter('all_transactions', checking + '\\n' + creditCard);\nreturn { status: 'success', statusMessage: 'Imported ' + summary.total + ' transactions' };",
+      "definition_json": "{\"parameters\":[{\"name\":\"checking_data\",\"type\":\"string\",\"description\":\"Checking account CSV\",\"required\":false},{\"name\":\"credit_card_data\",\"type\":\"string\",\"description\":\"Credit card CSV\",\"required\":false}],\"outputs\":[{\"name\":\"categorized_data\",\"type\":\"string\",\"description\":\"JSON transaction summary\"},{\"name\":\"all_transactions\",\"type\":\"string\",\"description\":\"Combined raw transactions\"}]}",
+      "chat_history": null,
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z"
+    },
+    {
+      "tool_id": "ctool-ar-aging",
+      "name": "AR Aging Calculator",
+      "description": "Calculates accounts receivable aging buckets from invoice data.",
+      "description_md": "Reads invoice CSV data and sorts outstanding invoices into aging buckets: Current, 1-30 days, 31-60 days, 61-90 days, and 90+ days overdue.",
+      "category": "bookkeeping",
+      "code": "const invoices = api.getParameter('invoices_data') || '';\nconst lines = invoices.split('\\n').slice(1).filter(l => l.trim());\nconst today = new Date();\n\nconst buckets = { current: 0, days_30: 0, days_60: 0, days_90: 0, over_90: 0 };\nconst overdue = [];\n\nfor (const line of lines) {\n  const parts = line.split(',');\n  if (parts.length < 5) continue;\n  const [invoice_id, client, amount, issue_date, due_date, status] = parts;\n  if (status && status.trim().toLowerCase() === 'paid') continue;\n\n  const due = new Date(due_date);\n  const daysOverdue = Math.floor((today - due) / (1000 * 60 * 60 * 24));\n  const amt = parseFloat(amount) || 0;\n\n  if (daysOverdue <= 0) buckets.current += amt;\n  else if (daysOverdue <= 30) { buckets.days_30 += amt; overdue.push({ invoice_id, client, amount: amt, days: daysOverdue }); }\n  else if (daysOverdue <= 60) { buckets.days_60 += amt; overdue.push({ invoice_id, client, amount: amt, days: daysOverdue }); }\n  else if (daysOverdue <= 90) { buckets.days_90 += amt; overdue.push({ invoice_id, client, amount: amt, days: daysOverdue }); }\n  else { buckets.over_90 += amt; overdue.push({ invoice_id, client, amount: amt, days: daysOverdue }); }\n}\n\napi.setParameter('aging_data', JSON.stringify({ buckets, overdue, total_outstanding: Object.values(buckets).reduce((a, b) => a + b, 0) }));\nreturn { status: 'success', statusMessage: overdue.length + ' overdue invoices found' };",
+      "definition_json": "{\"parameters\":[{\"name\":\"invoices_data\",\"type\":\"string\",\"description\":\"Invoice CSV: invoice_id, client, amount, issue_date, due_date, status\",\"required\":true}],\"outputs\":[{\"name\":\"aging_data\",\"type\":\"string\",\"description\":\"JSON aging analysis with buckets and overdue list\"}]}",
+      "chat_history": null,
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z"
+    },
+    {
+      "tool_id": "ctool-ar-html",
+      "name": "AR Aging Report",
+      "description": "Generates an HTML accounts receivable aging report.",
+      "description_md": "Takes AR aging data and produces a styled HTML report with aging buckets, overdue invoice details, and collection priority flags.",
+      "category": "bookkeeping",
+      "code": "const agingJson = api.getParameter('aging_data') || '{}';\nlet data;\ntry { data = JSON.parse(agingJson); } catch (e) { data = { buckets: {}, overdue: [], total_outstanding: 0 }; }\n\nconst b = data.buckets || {};\nconst overdueRows = (data.overdue || []).map(function(inv) {\n  return '<tr><td>' + inv.invoice_id + '</td><td>' + inv.client + '</td><td>$' + inv.amount.toFixed(2) + '</td><td class=\"' + (inv.days > 60 ? 'critical' : inv.days > 30 ? 'warn' : 'late') + '\">' + inv.days + ' days</td></tr>';\n}).join('');\n\nconst html = '<!DOCTYPE html>\\n<html><head><title>AR Aging Report</title>\\n<style>body{font-family:system-ui;max-width:800px;margin:2rem auto;padding:0 1rem}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}.late{color:#d97706}.warn{color:#ea580c}.critical{color:#dc2626;font-weight:600}.bucket{display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border-radius:6px;text-align:center}.bucket .amount{font-size:1.25rem;font-weight:700}.bucket .label{font-size:0.75rem;color:#6b7280}</style></head>\\n<body><h1>Accounts Receivable Aging</h1>\\n<p>Generated: ' + new Date().toLocaleDateString() + '</p>\\n<div>\\n<span class=\"bucket\" style=\"background:#ecfdf5\"><div class=\"amount\">$' + (b.current||0).toFixed(2) + '</div><div class=\"label\">Current</div></span>\\n<span class=\"bucket\" style=\"background:#fef9c3\"><div class=\"amount\">$' + (b.days_30||0).toFixed(2) + '</div><div class=\"label\">1-30 Days</div></span>\\n<span class=\"bucket\" style=\"background:#fed7aa\"><div class=\"amount\">$' + (b.days_60||0).toFixed(2) + '</div><div class=\"label\">31-60 Days</div></span>\\n<span class=\"bucket\" style=\"background:#fecaca\"><div class=\"amount\">$' + (b.days_90||0).toFixed(2) + '</div><div class=\"label\">61-90 Days</div></span>\\n<span class=\"bucket\" style=\"background:#fca5a5\"><div class=\"amount\">$' + (b.over_90||0).toFixed(2) + '</div><div class=\"label\">90+ Days</div></span>\\n</div>\\n<h2>Overdue Invoices</h2>\\n' + (overdueRows ? '<table><thead><tr><th>Invoice</th><th>Client</th><th>Amount</th><th>Days Overdue</th></tr></thead><tbody>' + overdueRows + '</tbody></table>' : '<p>No overdue invoices.</p>') + '\\n<p style=\"margin-top:2rem;font-weight:600\">Total Outstanding: $' + (data.total_outstanding||0).toFixed(2) + '</p>\\n</body></html>';\n\napi.setParameter('html_report', html);\nreturn { status: 'success', statusMessage: 'AR report generated' };",
+      "definition_json": "{\"parameters\":[{\"name\":\"aging_data\",\"type\":\"string\",\"description\":\"JSON aging data from AR Aging Calculator\",\"required\":true}],\"outputs\":[{\"name\":\"html_report\",\"type\":\"string\",\"description\":\"HTML AR aging report\"}]}",
+      "chat_history": null,
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z"
+    },
+    {
+      "tool_id": "ctool-expense-html",
+      "name": "Expense Report Generator",
+      "description": "Generates an HTML expense report from AI-categorized transactions.",
+      "description_md": "Takes categorized transaction JSON and produces a styled expense report grouped by GL account with totals.",
+      "category": "bookkeeping",
+      "code": "const categorizedJson = api.getParameter('categorized_json') || '[]';\nlet transactions;\ntry { transactions = JSON.parse(categorizedJson); } catch (e) { transactions = []; }\n\nconst byAccount = {};\nfor (const txn of transactions) {\n  const acct = txn.account || 'Uncategorized';\n  if (!byAccount[acct]) byAccount[acct] = { total: 0, count: 0 };\n  byAccount[acct].total += Math.abs(txn.amount || 0);\n  byAccount[acct].count++;\n}\n\nconst rows = Object.entries(byAccount)\n  .sort(function(a, b) { return b[1].total - a[1].total; })\n  .map(function(pair) { return '<tr><td>' + pair[0] + '</td><td>' + pair[1].count + '</td><td>$' + pair[1].total.toFixed(2) + '</td></tr>'; })\n  .join('');\n\nconst grandTotal = Object.values(byAccount).reduce(function(sum, d) { return sum + d.total; }, 0);\n\nconst html = '<!DOCTYPE html>\\n<html><head><title>Expense Report</title>\\n<style>body{font-family:system-ui;max-width:800px;margin:2rem auto;padding:0 1rem}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}.total{font-weight:700;background:#fafafa}</style></head>\\n<body><h1>Expense Report by Account</h1>\\n<p>Generated: ' + new Date().toLocaleDateString() + '</p>\\n<table><thead><tr><th>GL Account</th><th>Transactions</th><th>Total</th></tr></thead>\\n<tbody>' + rows + '\\n<tr class=\"total\"><td>Grand Total</td><td>' + transactions.length + '</td><td>$' + grandTotal.toFixed(2) + '</td></tr>\\n</tbody></table></body></html>';\n\napi.setParameter('html_report', html);\nreturn { status: 'success', statusMessage: 'Expense report generated' };",
+      "definition_json": "{\"parameters\":[{\"name\":\"categorized_json\",\"type\":\"string\",\"description\":\"JSON array of categorized transactions from LLM step\",\"required\":true}],\"outputs\":[{\"name\":\"html_report\",\"type\":\"string\",\"description\":\"HTML expense report\"}]}",
+      "chat_history": null,
+      "created_at": "2026-04-03T00:00:00.000Z",
+      "updated_at": "2026-04-03T00:00:00.000Z"
+    }
+  ],
+  "app_sessions": [],
+  "app_knowledge": [
+    {
+      "skill_id": "skill-bookkeeping",
+      "name": "Small Business Bookkeeping",
+      "content": "# Small Business Bookkeeping\n\nThis workspace manages bookkeeping for a small service/consulting business.\n\n## Getting Started\nThis workspace comes pre-loaded with a chart of accounts and 3 months of sample transactions (Jan–Mar 2025). You can run **View Financial Reports** immediately to see P&L, Balance Sheet, and Cash Flow.\n\n## Workflows\n\n### View Financial Reports (no AI key needed)\nRuns instantly. Generates P&L, Balance Sheet, and Cash Flow from the pre-loaded GL data.\n\n### Invoice & AR Tracker (no AI key needed)\nCalculates aging buckets from invoice data and generates an HTML report. Load your invoice CSV as `invoices` user data.\n\n### Expense Categorization (requires AI key)\nUses AI to categorize bank transactions to GL accounts. Load your bank CSV as `checking` and/or `credit_card` user data.\n\n## Data Sources\n- **checking**: Business checking account transactions (CSV: date, description, amount)\n- **credit_card**: Business credit card transactions (CSV: date, description, amount)\n- **invoices**: Outstanding invoices (CSV: invoice_id, client, amount, issue_date, due_date, status)\n\n## Chart of Accounts\n\n### Assets (1xxx)\n- 1000 Checking, 1010 Savings, 1100 Accounts Receivable, 1200 Equipment\n\n### Liabilities (2xxx)\n- 2000 Credit Card, 2100 Accounts Payable\n\n### Equity (3xxx)\n- 3000 Owner Equity, 3050 Owner Draw, 3100 Retained Earnings\n\n### Revenue (4xxx)\n- 4000 Service Revenue, 4100 Product Revenue\n\n### Expenses (5xxx)\n- 5000 Rent, 5010 Utilities, 5020 Office Supplies, 5030 Software & Subscriptions\n- 5040 Insurance, 5050 Professional Services, 5060 Marketing, 5070 Travel\n- 5080 Meals & Entertainment, 5090 Payroll, 5900 Miscellaneous\n\n## Monthly Close Process\n1. Download bank statements as CSV and load them as `checking` and `credit_card`\n2. Run **Expense Categorization** to tag transactions to GL accounts\n3. Review categorizations (check low-confidence items)\n4. Post reviewed entries via chat: ask the AI to post specific entries to the GL\n5. Run **View Financial Reports** to see updated statements\n6. Download reports for your records\n\n## Tips\n- Run **View Financial Reports** first to see the pre-loaded sample data\n- Categorize transactions soon after downloading — descriptions are freshest\n- Review AI categorizations for accuracy, especially new vendors\n- Run AR aging weekly to stay on top of collections\n- Keep invoice CSV updated when payments come in (change status to 'paid')",
+      "summary": "Guide for small business bookkeeping: workflows overview, chart of accounts, monthly close process, and tips.",
+      "updated_at": "2026-04-03T00:00:00.000Z"
+    }
+  ],
+  "user_data": {
+    "checking": "date,description,amount\n2025-03-01,Deposit - Acme Corp Invoice #1042,8500.00\n2025-03-03,ACH - Office Lease March,-1800.00\n2025-03-05,ACH - Payroll,-4000.00\n2025-03-07,POS - Office Depot,-87.50\n2025-03-10,ACH - Electric Company,-142.30\n2025-03-12,ACH - Water Utility,-62.70\n2025-03-15,Wire - Cedar Tech Invoice #1044,6500.00\n2025-03-18,ACH - State Farm Insurance,-450.00\n2025-03-20,POS - Staples,-47.25\n2025-03-22,ACH - Payroll,-4000.00\n2025-03-25,Deposit - Bright Labs Invoice #1045,4200.00\n2025-03-27,ACH - Internet/Phone,-189.00\n2025-03-28,POS - FedEx Shipping,-34.50\n2025-03-30,ACH - Johnson CPA,-500.00",
+    "credit_card": "date,description,amount\n2025-03-02,Amazon Web Services,-149.00\n2025-03-04,Adobe Creative Cloud,-54.99\n2025-03-06,Zoom Pro Monthly,-15.99\n2025-03-08,LinkedIn Premium,-59.99\n2025-03-11,Uber - Client Meeting,-24.50\n2025-03-13,Panera Bread - Team Lunch,-67.80\n2025-03-16,Google Workspace,-18.00\n2025-03-19,Delta Airlines - Denver Trip,-387.00\n2025-03-21,Marriott Denver,-189.00\n2025-03-23,Uber Eats - Working Late,-32.45\n2025-03-25,Slack Business,-12.50\n2025-03-27,Canva Pro,-12.99\n2025-03-29,QuickBooks Online,-80.00",
+    "invoices": "invoice_id,client,amount,issue_date,due_date,status\nINV-1040,Acme Corp,10000.00,2025-01-15,2025-02-14,paid\nINV-1041,Bright Labs,12000.00,2025-02-01,2025-03-03,paid\nINV-1042,Acme Corp,8500.00,2025-02-20,2025-03-22,paid\nINV-1043,DataFlow Inc,5500.00,2025-03-01,2025-03-31,outstanding\nINV-1044,Cedar Tech,6500.00,2025-03-10,2025-04-09,outstanding\nINV-1045,Bright Labs,4200.00,2025-03-15,2025-04-14,outstanding\nINV-1046,Acme Corp,9800.00,2025-03-20,2025-04-19,outstanding\nINV-1047,Summit Digital,3200.00,2025-02-01,2025-03-03,outstanding\nINV-1048,Meridian Group,7500.00,2025-01-15,2025-02-14,outstanding"
+  },
+  "dashboard_chat": {
+    "messages": [],
+    "last_focus_panel": null
+  },
+  "tool_data": {
+    "gl": {
+      "label": "General Ledger",
+      "manifest": {
+        "tables": {
+          "gl_accounts": {
+            "columns": ["account_id", "name", "type", "parent_path", "description", "active", "created_at"],
+            "types": ["TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"],
+            "row_count": 22,
+            "format": "csv"
+          },
+          "gl_entries": {
+            "columns": ["entry_id", "date", "description", "source", "voided", "created_at"],
+            "types": ["TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"],
+            "row_count": 22,
+            "format": "csv"
+          },
+          "gl_postings": {
+            "columns": ["posting_id", "entry_id", "account_id", "amount", "memo"],
+            "types": ["TEXT", "TEXT", "TEXT", "REAL", "TEXT"],
+            "row_count": 48,
+            "format": "csv"
+          }
+        }
+      },
+      "data": {
+        "gl_accounts": "account_id,name,type,parent_path,description,active,created_at\n1000,Checking,Asset,Assets,Business checking account,1,2025-01-01T00:00:00.000Z\n1010,Savings,Asset,Assets,Business savings account,1,2025-01-01T00:00:00.000Z\n1100,Accounts Receivable,Asset,Assets,Outstanding client invoices,1,2025-01-01T00:00:00.000Z\n1200,Equipment,Asset,Assets,Office equipment and computers,1,2025-01-01T00:00:00.000Z\n2000,Credit Card,Liability,Liabilities,Business credit card,1,2025-01-01T00:00:00.000Z\n2100,Accounts Payable,Liability,Liabilities,Outstanding vendor bills,1,2025-01-01T00:00:00.000Z\n3000,Owner Equity,Equity,Equity,Owner investment,1,2025-01-01T00:00:00.000Z\n3050,Owner Draw,Equity,Equity,Owner withdrawals,1,2025-01-01T00:00:00.000Z\n3100,Retained Earnings,Equity,Equity,Accumulated profits,1,2025-01-01T00:00:00.000Z\n4000,Service Revenue,Revenue,Revenue,Consulting and service fees,1,2025-01-01T00:00:00.000Z\n4100,Product Revenue,Revenue,Revenue,Product sales,1,2025-01-01T00:00:00.000Z\n5000,Rent,Expense,Expenses,Office rent,1,2025-01-01T00:00:00.000Z\n5010,Utilities,Expense,Expenses,Electric water internet,1,2025-01-01T00:00:00.000Z\n5020,Office Supplies,Expense,Expenses,,1,2025-01-01T00:00:00.000Z\n5030,\"Software & Subscriptions\",Expense,Expenses,,1,2025-01-01T00:00:00.000Z\n5040,Insurance,Expense,Expenses,Business insurance,1,2025-01-01T00:00:00.000Z\n5050,Professional Services,Expense,Expenses,Legal accounting etc,1,2025-01-01T00:00:00.000Z\n5060,Marketing,Expense,Expenses,Advertising and promotion,1,2025-01-01T00:00:00.000Z\n5070,Travel,Expense,Expenses,Business travel,1,2025-01-01T00:00:00.000Z\n5080,\"Meals & Entertainment\",Expense,Expenses,Client meals and business dining,1,2025-01-01T00:00:00.000Z\n5090,Payroll,Expense,Expenses,Employee wages,1,2025-01-01T00:00:00.000Z\n5900,Miscellaneous,Expense,Expenses,,1,2025-01-01T00:00:00.000Z",
+        "gl_entries": "entry_id,date,description,source,voided,created_at\ne-001,2025-01-01,Opening Balances,setup,0,2025-01-01T00:00:00.000Z\ne-002,2025-01-03,January Office Rent,manual,0,2025-01-03T00:00:00.000Z\ne-003,2025-01-10,Invoice #1040 - Acme Corp,manual,0,2025-01-10T00:00:00.000Z\ne-004,2025-01-25,Payment Received - Acme Corp,manual,0,2025-01-25T00:00:00.000Z\ne-005,2025-01-15,January Payroll,manual,0,2025-01-15T00:00:00.000Z\ne-006,2025-01-20,January Utilities,manual,0,2025-01-20T00:00:00.000Z\ne-007,2025-01-22,January Software Subscriptions,manual,0,2025-01-22T00:00:00.000Z\ne-008,2025-02-03,February Office Rent,manual,0,2025-02-03T00:00:00.000Z\ne-009,2025-02-05,Invoice #1041 - Bright Labs,manual,0,2025-02-05T00:00:00.000Z\ne-010,2025-02-20,Payment Received - Bright Labs,manual,0,2025-02-20T00:00:00.000Z\ne-011,2025-02-14,February Payroll,manual,0,2025-02-14T00:00:00.000Z\ne-012,2025-02-18,February Utilities,manual,0,2025-02-18T00:00:00.000Z\ne-013,2025-02-20,February Software Subscriptions,manual,0,2025-02-20T00:00:00.000Z\ne-014,2025-02-25,Q1 Business Insurance,manual,0,2025-02-25T00:00:00.000Z\ne-015,2025-03-03,March Office Rent,manual,0,2025-03-03T00:00:00.000Z\ne-016,2025-03-05,Invoice #1042 - Acme Corp,manual,0,2025-03-05T00:00:00.000Z\ne-017,2025-03-15,Payment Received - Acme Corp,manual,0,2025-03-15T00:00:00.000Z\ne-018,2025-03-14,March Payroll,manual,0,2025-03-14T00:00:00.000Z\ne-019,2025-03-18,March Utilities,manual,0,2025-03-18T00:00:00.000Z\ne-020,2025-03-20,March Software Subscriptions,manual,0,2025-03-20T00:00:00.000Z\ne-021,2025-03-22,Office Supplies - Staples,manual,0,2025-03-22T00:00:00.000Z\ne-022,2025-03-30,Professional Services - CPA,manual,0,2025-03-30T00:00:00.000Z",
+        "gl_postings": "posting_id,entry_id,account_id,amount,memo\np-001,e-001,1000,15000,Opening cash balance\np-002,e-001,1010,5000,Opening savings\np-003,e-001,1100,3000,Outstanding prior-year invoices\np-004,e-001,1200,2000,Office equipment\np-005,e-001,2000,-1500,Credit card balance\np-006,e-001,3000,-23500,Owner investment\np-007,e-002,5000,1800,\np-008,e-002,1000,-1800,\np-009,e-003,1100,10000,Consulting services Jan\np-010,e-003,4000,-10000,\np-011,e-004,1000,10000,\np-012,e-004,1100,-10000,\np-013,e-005,5090,4000,\np-014,e-005,1000,-4000,\np-015,e-006,5010,195,Electric and water\np-016,e-006,1000,-195,\np-017,e-007,5030,299,AWS and Adobe and Zoom\np-018,e-007,2000,-299,\np-019,e-008,5000,1800,\np-020,e-008,1000,-1800,\np-021,e-009,1100,12000,Data analysis project\np-022,e-009,4000,-12000,\np-023,e-010,1000,12000,\np-024,e-010,1100,-12000,\np-025,e-011,5090,4000,\np-026,e-011,1000,-4000,\np-027,e-012,5010,210,Electric and internet\np-028,e-012,1000,-210,\np-029,e-013,5030,299,AWS and Adobe and Zoom\np-030,e-013,2000,-299,\np-031,e-014,5040,450,Quarterly premium\np-032,e-014,1000,-450,\np-033,e-015,5000,1800,\np-034,e-015,1000,-1800,\np-035,e-016,1100,8500,Consulting services Mar\np-036,e-016,4000,-8500,\np-037,e-017,1000,8500,\np-038,e-017,1100,-8500,\np-039,e-018,5090,4000,\np-040,e-018,1000,-4000,\np-041,e-019,5010,205,Electric and phone\np-042,e-019,1000,-205,\np-043,e-020,5030,299,AWS and Adobe and Zoom\np-044,e-020,2000,-299,\np-045,e-021,5020,175,Printer paper and toner\np-046,e-021,2000,-175,\np-047,e-022,5050,500,Tax prep consultation\np-048,e-022,1000,-500,"
+      }
+    }
+  }
+}
