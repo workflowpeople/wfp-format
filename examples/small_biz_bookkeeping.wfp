@@ -1,5 +1,7 @@
 {
   "meta": {
+    "format_version": 2,
+    "spec_url": "https://raw.githubusercontent.com/workflowpeople/wfp-format/main/SPEC.md",
     "exported_at": "2026-04-03T00:00:00.000Z",
     "workspace": "Small Biz Bookkeeping"
   },

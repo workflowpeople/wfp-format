@@ -1,6 +1,7 @@
 {
   "meta": {
     "format_version": 2,
+    "spec_url": "https://raw.githubusercontent.com/workflowpeople/wfp-format/main/SPEC.md",
     "exported_at": "2026-04-11T05:38:55.976Z",
     "workspace": "My Workspace"
   },
