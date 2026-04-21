@@ -1,4 +1,4 @@
-# .wfp — Workflow People File Format
+# .wfp — Workflow Prosses File Format
 
 A `.wfp` file is a portable, self-contained JSON document that encodes a complete finance workflow — process steps, data, custom logic, and domain knowledge — in a format that is human-readable, machine-executable, and shareable.
 
