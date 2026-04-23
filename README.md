@@ -1,6 +1,14 @@
-# .wfp — Workflow People File Format
+<p align="center">
+  <img src="./logo/wfp-logo.svg" alt=".wfp format" width="280" />
+</p>
 
-A `.wfp` file is a portable, self-contained JSON document that encodes a complete finance workflow — process steps, data, custom logic, and domain knowledge — in a format that is human-readable, machine-executable, and shareable.
+<h1 align="center">.wfp — Workflow People File Format</h1>
+
+<p align="center">
+  A portable, self-contained JSON document that encodes a complete finance workflow — process steps, data, custom logic, and domain knowledge — in a format that is human-readable, machine-executable, and shareable.
+</p>
+
+---
 
 ## What is it for?
 
@@ -21,6 +29,9 @@ Copy the contents of a `.wfp` file and paste it into Claude, ChatGPT, or Gemini 
 ├── RUNNER.md            # LLM prompt runner — paste into any AI chat
 ├── README.md            # This file
 ├── LICENSE              # MIT
+├── logo/
+│   ├── wfp-icon.svg     # Briefcase icon (square, for favicons & badges)
+│   └── wfp-logo.svg     # Full logo (briefcase + .wfp text)
 └── examples/
     ├── bank_categorization.wfp
     └── small_biz_bookkeeping.wfp

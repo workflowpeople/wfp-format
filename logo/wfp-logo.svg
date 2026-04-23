@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none">
+  <!-- Briefcase body -->
+  <rect x="4" y="18" width="56" height="40" rx="6" fill="#EEF2FF" stroke="#534AB7" stroke-width="3"/>
+  <!-- Handle -->
+  <path d="M22 18v-6a6 6 0 0 1 6-6h8a6 6 0 0 1 6 6v6" stroke="#534AB7" stroke-width="3" stroke-linecap="round"/>
+  <!-- Middle band -->
+  <rect x="4" y="33" width="56" height="5" fill="#534AB7" rx="1.5"/>
+  <!-- Clasp -->
+  <rect x="26" y="29" width="12" height="12" rx="3" fill="#534AB7"/>
+  <!-- .wfp text -->
+  <text x="76" y="46" font-family="'Segoe UI',system-ui,-apple-system,sans-serif" font-size="36" font-weight="700" fill="#534AB7" letter-spacing="1">.wfp</text>
+</svg>
