@@ -1,4 +1,4 @@
-# .wfp File Format Specification — Version 2
+# .wfp File Format Specification — Version 3
 
 ## Overview
 
@@ -11,8 +11,9 @@ A `.wfp` file captures not just data (like `.xlsx`) or a final document (like `.
 1. **Portable** — a single file, no external dependencies
 2. **Self-describing** — a human can read the JSON and understand the workflow
 3. **Executable** — a runtime (or an LLM) can interpret and run it
-4. **Composable** — workflows reference reusable tools and data by name
-5. **Domain-native** — built for finance and accounting mental models
+4. **Composable** — workflows reference reusable tools, data, and knowledge by name
+5. **Reproducible** — embedded knowledge packs mean the same file produces the same AI behaviour anywhere
+6. **Domain-native** — built for finance and accounting mental models
 
 ### File Extension
 
@@ -28,7 +29,8 @@ A `.wfp` file captures not just data (like `.xlsx`) or a final document (like `.
   "app_workflows": [ ... ],
   "app_custom_tools": [ ... ],
   "app_sessions": [ ... ],
-  "app_knowledge": [ ... ],
+  "app_knowledge_packs": [ ... ],
+  "app_workspace_todos": [ ... ],
   "user_data": { ... },
   "dashboard_chat": { ... },
   "tool_data": { ... }
@@ -45,23 +47,30 @@ File-level metadata.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `format_version` | number | Recommended | Format version. Current: `2`. Readers should reject versions they don't support. |
+| `format_version` | number | Recommended | Format version. Current: `3`. Readers should reject versions they don't support. |
 | `spec_url` | string (URL) | Recommended | URL to the canonical format specification. LLMs receiving a pasted `.wfp` file can fetch this to understand the format. |
 | `exported_at` | string (ISO 8601) | Recommended | When the file was exported. |
 | `workspace` | string | Recommended | Human-readable workspace name. |
-| `workspace_persona` | string | Optional | Markdown persona description. Instructs the AI how to behave (e.g., "You are an experienced bookkeeper specializing in small business accounting."). |
-| `selected_experts` | string | Optional | JSON-stringified array of expert IDs active in this workspace. |
+| `period` | string | Optional | Period label for the workspace (e.g., `"April 2026"`, `"FY2026 Q1"`). Used by dashboards. |
+| `workspace_notes` | array | Optional | Free-text timestamped notes. Each entry: `{ "text": string, "createdAt": ISO8601 }`. |
+| `workspace_persona` | string | Optional | Markdown persona description. Instructs the AI how to behave (e.g., "You are an experienced bookkeeper..."). |
+| `modules` | string[] | Optional | Versioned module IDs enabled in this workspace (e.g., `["wfp_gl:1.0"]`). Importers auto-enable referenced modules. |
 
 **Example:**
 
 ```json
 {
   "meta": {
-    "format_version": 2,
+    "format_version": 3,
     "spec_url": "https://raw.githubusercontent.com/workflowpeople/wfp-format/main/SPEC.md",
-    "exported_at": "2026-04-11T15:30:00.000Z",
+    "exported_at": "2026-05-17T15:30:00.000Z",
     "workspace": "Small Biz Bookkeeping",
-    "workspace_persona": "You are an experienced bookkeeper..."
+    "period": "April 2026",
+    "workspace_notes": [
+      { "text": "Waiting on Amex statement", "createdAt": "2026-05-16T10:00:00.000Z" }
+    ],
+    "workspace_persona": "You are an experienced bookkeeper...",
+    "modules": ["wfp_gl:1.0"]
   }
 }
 ```
@@ -79,9 +88,11 @@ Array of workflow definitions. Each workflow is an ordered sequence of nodes (st
 | `workflow_id` | string | Yes | Unique identifier (e.g., `"wf-view-reports"`). |
 | `name` | string | Yes | Human-readable name (unique within file). |
 | `description` | string | No | Markdown description: purpose, when to use, steps, outputs. |
-| `type` | string | Yes | `"automation"` (runs step-by-step) or `"chat"` (conversational). |
+| `type` | string | No | `"automation"` (runs step-by-step) or `"chat"` (conversational). Defaults to `"automation"`. |
 | `nodes` | string | Yes | **JSON-stringified** array of `WorkflowNode` objects. |
 | `edges` | string | Yes | **JSON-stringified** array of `Edge` objects. |
+| `sort_order` | number | No | Display order on the workspace dashboard (0-based). |
+| `depends_on` | string | No | JSON-stringified array of `workflow_id`s this workflow depends on. Used for status cascade (stale upstream → stale downstream). |
 | `created_at` | string (ISO 8601) | No | Creation timestamp. |
 | `updated_at` | string (ISO 8601) | No | Last modification timestamp. |
 | `version` | number | No | Workflow version number. |
@@ -89,7 +100,7 @@ Array of workflow definitions. Each workflow is an ordered sequence of nodes (st
 | `snapshot_data` | any | No | Reserved for workflow state snapshots. |
 | `builder_chat` | any | No | Reserved for workflow builder conversation history. |
 
-> **Important:** `nodes` and `edges` are JSON **strings**, not raw arrays. This is because they are stored as TEXT in SQLite and preserved as-is during export. Parsers must call `JSON.parse()` on these fields.
+> **Important:** `nodes`, `edges`, and `depends_on` are JSON **strings**, not raw arrays. This is because they are stored as TEXT in SQLite and preserved as-is during export. Parsers must call `JSON.parse()` on these fields.
 
 ### WorkflowNode
 
@@ -126,14 +137,16 @@ Tool parameters can reference data by name using double-brace syntax:
 {
   "toolParameters": {
     "data": "{{checking}}",
-    "instructions": "Categorize these transactions..."
+    "instructions": "Categorize these transactions using {{chart-of-accounts}}..."
   }
 }
 ```
 
-At runtime, `{{checking}}` resolves by looking up (in order):
+At runtime, `{{name}}` resolves by looking up (in order):
+
 1. **Session parameters** — values set by previous workflow steps via `api.setParameter()`
 2. **User data** — files loaded in `user_data` section
+3. **Knowledge packs** — content of a pack with matching `name` (if scope includes the current operation)
 
 The legacy syntax `{{[name]}}` (with square brackets) is also supported for backward compatibility.
 
@@ -147,9 +160,9 @@ Tool IDs determine what executes at each node:
 | `utils_workflow_end` | Built-in | Workflow end marker |
 | `llm_step` | Built-in | Sends a prompt to an LLM. Uses `toolParameters.prompt`, `toolParameters.data`, `toolParameters.instructions`, `toolParameters.context`. |
 | `util_chat_download` | Built-in | Presents a download link to the user. Uses `toolParameters.data`, `toolParameters.filename`, `toolParameters.label`. |
-| `gl_report_pl` | Built-in (GL) | Generate Profit & Loss report. Parameters: `from_date`, `to_date`. |
-| `gl_report_bs` | Built-in (GL) | Generate Balance Sheet. Parameters: `as_of_date`. |
-| `gl_report_cf` | Built-in (GL) | Generate Cash Flow Statement. Parameters: `from_date`, `to_date`. |
+| `gl_report_pl` | Built-in (GL module) | Generate Profit & Loss report. Parameters: `from_date`, `to_date`. |
+| `gl_report_bs` | Built-in (GL module) | Generate Balance Sheet. Parameters: `as_of_date`. |
+| `gl_report_cf` | Built-in (GL module) | Generate Cash Flow Statement. Parameters: `from_date`, `to_date`. |
 | `ctool-*` | Custom | User-defined tool. Code and definition in `app_custom_tools`. |
 
 ### Workflow Management
@@ -215,14 +228,21 @@ Methods available to custom tool code at runtime:
 
 | Method | Description |
 |---|---|
-| `api.getParameter(name)` | Read a named parameter (from session or user data). Returns the raw value. |
+| `api.getParameter(name)` | Read a named parameter (from session, user data, or knowledge pack). |
 | `api.setParameter(name, value)` | Set a session-scoped parameter for downstream steps. |
 | `api.setUserData(name, value)` | Persist data to the workspace (survives across sessions). |
 | `api.addMessage(msg)` | Add a message to the chat UI. `msg` can have `html`, `markdown`, or `role` fields. |
 | `api.pauseForInput(msg)` | Pause workflow execution and prompt the user for input. |
 | `api.getNodeContext()` | Get metadata about the current workflow node. |
+| `api.getKnowledge(name)` | Read the content of a knowledge pack by name. |
 | `api.llm.classify(options)` | Call an LLM to classify/categorize data. |
 | `api.llm.summarize(options)` | Call an LLM to summarize text. |
+| `api.fetch(url, options)` | Make an HTTP request (for external API integrations). |
+| `api.getSecret(name)` | Read an encrypted secret from workspace settings. |
+| `api.query(sql, params)` | Read-only SQL query against workspace tables. |
+| `api.wfpGl.load(files)` | (GL module) Load user data files into `wfp_gl`. |
+| `api.wfpGl.loadBudget(files)` | (GL module) Load budget data into `wfp_budget`. |
+| `api.wfpGl.clear()` | (GL module) Clear all GL tables. |
 
 ### Tool Definition
 
@@ -261,7 +281,7 @@ Sessions are typically empty in shared `.wfp` files (you share the workflow, not
 | `id` | string | Session UUID. |
 | `workflow_id` | string | Which workflow was run. |
 | `session_name` | string | Human-readable session name. |
-| `instance_status` | string | `"pending"`, `"in_progress"`, `"completed"`, `"blocked"`, `"cancelled"`, `"scheduled"`. |
+| `instance_status` | string | `"pending"`, `"in_progress"`, `"completed"`, `"awaiting_feedback"`, `"blocked"`, `"cancelled"`, `"scheduled"`. |
 | `messages` | string | JSON-stringified array of chat messages. |
 | `workflow` | string | JSON-stringified array of workflow node state. |
 | `edges` | string | JSON-stringified array of edges. |
@@ -275,25 +295,94 @@ Sessions are typically empty in shared `.wfp` files (you share the workflow, not
 
 ---
 
-## `app_knowledge`
+## `app_knowledge_packs`
 
-Array of knowledge articles that provide domain context to the AI. These are reference documents the AI persona can draw on during workflow execution.
+Array of knowledge packs — markdown documents that teach the AI about the business: chart of accounts, tax rules, vendor lists, close procedures, API schemas, anything the workflow author wants the AI to know.
+
+Every knowledge pack is **embedded in the .wfp file**. This makes the file fully self-contained and portable: give it to a colleague, open it on another server, and it works. No external references to resolve.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `skill_id` | string | Yes | Unique identifier (e.g., `"skill-bookkeeping"`). |
-| `name` | string | Yes | Human-readable name. |
-| `content` | string | Yes | Markdown content — can include procedures, chart of accounts, policies, tips. |
-| `summary` | string | No | Short description. |
+| `name` | string | Yes | Unique name (e.g., `"tax-rules"`, `"chart-of-accounts"`). |
+| `scope` | string | Yes | When the pack is loaded: `"chat"`, `"workflow"`, or `"chat+workflow"`. A special scope `"privacy-map"` is reserved for entity-masking packs (see [Privacy Map](#privacy-map)). |
+| `tags` | string[] | No | Tags for organization (e.g., `["tax", "classification"]`). Default: `[]`. |
+| `content` | string | Yes | Markdown content — business rules, procedures, account structures, API schemas, etc. |
+| `created_at` | string (ISO 8601) | No | Creation timestamp. |
 | `updated_at` | string (ISO 8601) | No | Last modification timestamp. |
 
 **Example:**
 
 ```json
 {
-  "skill_id": "skill-bookkeeping",
-  "name": "Small Business Bookkeeping",
-  "content": "# Small Business Bookkeeping\n\nThis workspace manages bookkeeping for a small service business.\n\n## Chart of Accounts\n- 1000 Checking\n- 4000 Service Revenue\n- 5000 Rent\n..."
+  "name": "tax-rules",
+  "scope": "chat+workflow",
+  "tags": ["tax", "classification", "expenses"],
+  "content": "# Tax Classification Rules\n\n## Travel & Meals\n- Meals during business travel: Account 6240 (Travel Meals), max $75/day\n- Client entertainment: Account 6250 (Entertainment), requires receipt over $25\n...",
+  "created_at": "2026-04-15T10:00:00.000Z",
+  "updated_at": "2026-04-20T14:30:00.000Z"
+}
+```
+
+### Scopes
+
+| Scope | Loaded for |
+|---|---|
+| `chat` | Chat / AI operations only (build, modify, ask, plan) |
+| `workflow` | Workflow runtime only (available to custom tools via `api.getKnowledge()`) |
+| `chat+workflow` | Both (default for most user packs) |
+| `privacy-map` | Special — entity-masking layer, never sent to the LLM |
+
+### Privacy Map
+
+A knowledge pack with `scope: "privacy-map"` contains a list of entity names (one per line) that should be masked before any prompt is sent to a cloud LLM. The runtime substitutes each name with an opaque token (`«E1»`, `«E2»`, …) and unmasks the response on return. The LLM sees only tokens, allowing structural processing (categorize, calculate, report) without seeing real client/entity names.
+
+### Legacy
+
+Older `.wfp` files (format_version 2 and earlier) may contain an `app_knowledge` section with `skill_id` / `name` / `content` fields. Readers should import these into `app_knowledge_packs` with `scope: "chat+workflow"` and no tags.
+
+### Design rationale
+
+Knowledge packs are embedded rather than stored centrally because:
+
+1. **Portability** — the .wfp file works anywhere, no server dependency
+2. **Reproducibility** — re-running a workflow always uses the same knowledge
+3. **Auditability** — what's in the file IS what ran, no ambiguity
+4. **Privacy** — business rules stay in the user's file, not on a shared server
+
+Future tiers (firm-wide packs, hosting-level packs) will merge into the workspace at load time, but the .wfp export will always contain a snapshot of the active packs.
+
+---
+
+## `app_workspace_todos`
+
+Array of workspace-scoped todos. Used to decompose complex projects into discrete tasks the user can work through. Each todo can be clicked to open a new session pre-filled with the instruction.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `todo_id` | string | No | Stable identifier (auto-generated on import if absent). |
+| `label` | string | Yes | Short human-readable label shown in the todo list. |
+| `instruction` | string | No | Pre-filled session instruction (e.g., `"/wf-build expense review workflow"`). |
+| `status` | string | Yes | `"pending"`, `"in_progress"`, `"done"`, or `"cancelled"`. |
+| `sort_order` | number | No | Display order (0-based). |
+| `source` | string | No | Origin: `"planner"`, `"user"`, `"audit"`, `"system"`, or `"session:<id>"`. |
+| `category` | string | No | One of `"build"`, `"data"`, `"knowledge"`, `"review"`, `"general"`. |
+| `created_at` | string (ISO 8601) | No | Creation timestamp. |
+| `updated_at` | string (ISO 8601) | No | Last update timestamp. |
+
+**Example:**
+
+```json
+{
+  "app_workspace_todos": [
+    {
+      "label": "Build expense review workflow",
+      "instruction": "/wf-build categorize and review monthly expenses by account",
+      "status": "pending",
+      "sort_order": 0,
+      "source": "planner",
+      "category": "build"
+    }
+  ]
 }
 ```
 
@@ -377,46 +466,59 @@ Saved conversation history from the main dashboard chat interface.
 
 Extensible key-value map for tool-specific persistent data. Each key corresponds to a registered tool data handler.
 
-### General Ledger (`gl`)
+### General Ledger (`wfp_gl`) — v3 unified GL
 
-The built-in GL module stores chart of accounts, journal entries, and postings:
+The GL module is **optional** (enabled per-workspace via `meta.modules`). When present, it stores three tables — all journal lines, budget, and chart of accounts — under a single `tool_data.wfp_gl` block:
 
 ```json
 {
   "tool_data": {
-    "gl": {
-      "label": "General Ledger",
+    "wfp_gl": {
+      "label": "GL Journal Data",
       "manifest": {
         "tables": {
-          "gl_accounts": {
-            "columns": ["account_id", "name", "type", "parent_path", "description", "active", "created_at"],
-            "types": ["TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"],
-            "row_count": 22,
+          "wfp_gl": {
+            "columns": ["date", "transaction_type", "num", "name", "memo", "account", "account_type", "class", "location", "entity", "vendor", "customer", "debit", "credit", "amount", "period", "source_file"],
+            "types": ["TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "REAL", "REAL", "REAL", "TEXT", "TEXT"],
+            "row_count": 412,
             "format": "csv"
           },
-          "gl_entries": {
-            "columns": ["entry_id", "date", "description", "source", "voided", "created_at"],
-            "types": ["TEXT", "TEXT", "TEXT", "TEXT", "INTEGER", "TEXT"],
-            "row_count": 22,
+          "wfp_budget": {
+            "columns": ["account", "period", "amount", "class", "location", "entity", "source_file"],
+            "types": ["TEXT", "TEXT", "REAL", "TEXT", "TEXT", "TEXT", "TEXT"],
+            "row_count": 24,
             "format": "csv"
           },
-          "gl_postings": {
-            "columns": ["posting_id", "entry_id", "account_id", "amount", "memo"],
-            "types": ["TEXT", "TEXT", "TEXT", "REAL", "TEXT"],
-            "row_count": 48,
+          "wfp_accounts": {
+            "columns": ["account", "account_type", "description", "active", "entity", "account_number", "account_name", "parent_account", "parent_number", "parent_name", "account_level"],
+            "types": ["TEXT", "TEXT", "TEXT", "INTEGER", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "TEXT", "INTEGER"],
+            "row_count": 64,
             "format": "csv"
           }
         }
       },
       "data": {
-        "gl_accounts": "account_id,name,type,...\n1000,Checking,Asset,...",
-        "gl_entries": "entry_id,date,description,...\ne-001,2025-01-01,...",
-        "gl_postings": "posting_id,entry_id,account_id,amount,memo\np-001,e-001,1000,15000,Opening balance"
+        "wfp_gl": "date,transaction_type,num,name,memo,account,...",
+        "wfp_budget": "account,period,amount,...",
+        "wfp_accounts": "account,account_type,description,..."
       }
     }
   }
 }
 ```
+
+#### Key v3 GL design points
+
+- **Unified journal:** Imported QBO entries, opening balances, and manual journal entries all live in `wfp_gl`. They are distinguished by `transaction_type` (e.g., `"Opening Balance"`, `"Journal Entry"`, or the QBO transaction type).
+- **Opening balances** are dated to the as-of day (typically prior year-end) and ride as ordinary `wfp_gl` rows. The Balance Sheet computes `SUM(amount) WHERE date ≤ as_of`. If an opening file's debits ≠ credits, the difference is plugged to **Opening Balance Equity**.
+- **Vendor / Customer** are columns on `wfp_gl`, not separate master tables. Available as pivot dimensions.
+- **Account hierarchy** is derived from the colon-delimited full name (e.g., `7000-00 Compensation:7031-00 Insurance` → parent=`7000-00 Compensation`, level=2). `wfp_gl.account` stays as the flat full name; hierarchy is a lookup.
+- **Periods** use `YYYY-MM` format.
+- **Currency** is USD-only at this version.
+
+#### Legacy GL (`gl`) — v2
+
+Older `.wfp` files (format_version 2) may contain a legacy `tool_data.gl` block with separate `gl_accounts`, `gl_entries`, and `gl_postings` tables. Readers should treat this as deprecated; importers should migrate `gl_entries` + `gl_postings` rows into the unified `wfp_gl` table, dropping `gl_accounts` rows into `wfp_accounts`.
 
 ### Tool Data Block Structure
 
@@ -430,7 +532,7 @@ The built-in GL module stores chart of accounts, journal entries, and postings:
 | `manifest.tables[name].format` | string | Data format (currently always `"csv"`). |
 | `data` | object | Map of table names to CSV string data. |
 
-Other tools can register their own data handlers using the same block structure.
+Other modules can register their own data handlers using the same block structure.
 
 ---
 
@@ -444,12 +546,12 @@ Encryption details are implementation-specific and outside the scope of this for
 
 ## Minimal Valid .wfp File
 
-The smallest useful `.wfp` file — a single workflow with one LLM step:
+The smallest useful `.wfp` file — a single workflow with one LLM step that references a knowledge pack:
 
 ```json
 {
   "meta": {
-    "format_version": 2,
+    "format_version": 3,
     "workspace": "Quick Analysis"
   },
   "app_workflows": [
@@ -457,11 +559,19 @@ The smallest useful `.wfp` file — a single workflow with one LLM step:
       "workflow_id": "wf-analyze",
       "name": "Analyze Data",
       "type": "automation",
+      "sort_order": 0,
       "nodes": "[{\"node_id\":\"node-start\",\"workflow_id\":\"wf-analyze\",\"type\":\"tool\",\"label\":\"Start\",\"tool_id\":\"utils_workflow_start\",\"step_order\":1},{\"node_id\":\"node-analyze\",\"workflow_id\":\"wf-analyze\",\"type\":\"tool\",\"label\":\"Analyze\",\"tool_id\":\"llm_step\",\"toolParameters\":{\"data\":\"{{input_data}}\",\"instructions\":\"Analyze this financial data. Identify trends, anomalies, and key takeaways. Present findings in a clear table.\"},\"step_order\":2},{\"node_id\":\"node-end\",\"workflow_id\":\"wf-analyze\",\"type\":\"end\",\"label\":\"Done\",\"tool_id\":\"utils_workflow_end\",\"step_order\":3}]",
       "edges": "[{\"edge_id\":\"e1\",\"workflow_id\":\"wf-analyze\",\"source_node_id\":\"node-start\",\"target_node_id\":\"node-analyze\"},{\"edge_id\":\"e2\",\"workflow_id\":\"wf-analyze\",\"source_node_id\":\"node-analyze\",\"target_node_id\":\"node-end\"}]"
     }
   ],
   "app_custom_tools": [],
+  "app_knowledge_packs": [
+    {
+      "name": "analysis-guide",
+      "scope": "chat+workflow",
+      "content": "# Analysis Guide\n\nFocus on month-over-month variance and flag anything > 10% change."
+    }
+  ],
   "user_data": {
     "input_data": {
       "content": "month,revenue,expenses\nJan,50000,42000\nFeb,55000,43000\nMar,48000,44000",
@@ -479,8 +589,17 @@ The smallest useful `.wfp` file — a single workflow with one LLM step:
 
 | Version | Changes |
 |---|---|
-| **2** (current) | JSON format. Added `user_data` metadata fields (`content_type`, `content_json`, `columns`, `row_count`). Added `tool_data` for extensible tool storage. Added `dashboard_chat`. Added `workspace_persona` and `selected_experts` to meta. |
-| **1** (legacy) | Section-based text format using `[START:section]...[END:section]` markers with CSV data. Still importable by the reference implementation. |
+| **3** (current) | Renamed `app_knowledge` → `app_knowledge_packs` (added `scope`, `tags`). Added top-level `app_workspace_todos`. Added `meta.period`, `meta.workspace_notes`, `meta.modules`. Added `app_workflows.sort_order`, `app_workflows.depends_on`. Replaced legacy `tool_data.gl` with unified `tool_data.wfp_gl` (single journal table covering imported, opening, and manual entries; vendor/customer columns; account hierarchy). |
+| **2** | JSON format. Added `user_data` metadata fields (`content_type`, `content_json`, `columns`, `row_count`). Added `tool_data` for extensible tool storage. Added `dashboard_chat`. Added `workspace_persona` to meta. |
+| **1** | Section-based text format using `[START:section]...[END:section]` markers with CSV data. Still importable by the reference implementation. |
+
+### Reading older versions
+
+Reference implementations are expected to read versions 1 and 2 alongside 3. Specifically:
+
+- `app_knowledge` (v2) → import into `app_knowledge_packs` with `scope: "chat+workflow"` and `tags: []`
+- `tool_data.gl` (v2) → migrate rows into `tool_data.wfp_gl`
+- v1 section-based text → parse to v3 JSON structure
 
 ---
 
