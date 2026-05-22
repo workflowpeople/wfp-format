@@ -1,0 +1,52 @@
+{
+  "name": "wfp-format",
+  "version": "1.0.0",
+  "description": "TypeScript types and specification for the .wfp workflow file format.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./types": {
+      "types": "./types.ts",
+      "default": "./types.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.ts",
+    "types.ts",
+    "new_simplified_spec.md",
+    "SPEC.md",
+    "RUNNER.md",
+    "README.md",
+    "LICENSE",
+    "examples"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/workflowpeople/wfp-format"
+  },
+  "homepage": "https://github.com/workflowpeople/wfp-format",
+  "bugs": {
+    "url": "https://github.com/workflowpeople/wfp-format/issues"
+  },
+  "keywords": [
+    "wfp",
+    "workflow",
+    "workflowpeople",
+    "file-format",
+    "ai-workflow"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
