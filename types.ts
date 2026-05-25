@@ -2,7 +2,7 @@
  * .wfp File Format — TypeScript Types (1.0.0)
  *
  * Canonical types for the simplified .wfp format defined in
- *   ./new_simplified_spec.md
+ *   ./README.md
  *
  * The spec is the source of truth. This file mirrors it for TypeScript
  * implementers (runners, hosted apps, third-party tooling). If the spec
@@ -99,19 +99,41 @@ export type NodeKind = "start" | "end" | "tool" | "prompt";
 export interface Node {
   /** Unique within the workflow. */
   id: string;
+  /** UI hint only. Dispatch is driven by `tool_id`, not `type`. */
   type: NodeKind;
   label: string;
   /** Execution order (1-based). */
   step_order: number;
 
-  /** Tool to execute. Empty for start/end markers. */
-  tool_id?: string;
+  /**
+   * Tool to execute. For start/end markers use `"workflow_start"` /
+   * `"workflow_end"`. See README §3 "Reserved tool IDs".
+   */
+  tool_id: string;
   /** Static config: provider, model, etc. */
   tool_config?: Record<string, unknown>;
   /** Runtime parameters. Values may reference data via `{{name}}`. */
   tool_parameters?: Record<string, unknown>;
   workflow_mgmt?: WorkflowMgmt;
 }
+
+/**
+ * The four built-in tool IDs reserved by the spec. A `.wfp` file MUST NOT
+ * declare a custom tool with one of these IDs.
+ */
+export type BuiltinToolId =
+  | "workflow_start"
+  | "workflow_end"
+  | "llm_step"
+  | "chat_download";
+
+/** Runtime set of reserved built-in IDs for cheap membership checks. */
+export const BUILTIN_TOOL_IDS: ReadonlySet<BuiltinToolId> = new Set([
+  "workflow_start",
+  "workflow_end",
+  "llm_step",
+  "chat_download",
+]);
 
 export interface WorkflowMgmt {
   requires_approval?: boolean;
@@ -286,6 +308,11 @@ export interface Message {
   markdown?: string;
   /** Rendered HTML body (when the writer chose to pre-render). */
   html?: string;
+  /**
+   * Spoken-line body. Runners with a TTS engine speak it; others render the
+   * text as a normal log line.
+   */
+  voice?: string;
   /** Workflow node that generated this message. */
   node_id?: string;
   node_label?: string;

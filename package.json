@@ -1,6 +1,6 @@
 {
   "name": "wfp-format",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TypeScript types and specification for the .wfp workflow file format.",
   "license": "MIT",
   "type": "module",
@@ -20,12 +20,8 @@
   "files": [
     "index.ts",
     "types.ts",
-    "new_simplified_spec.md",
-    "SPEC.md",
-    "RUNNER.md",
     "README.md",
-    "LICENSE",
-    "examples"
+    "LICENSE"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit"

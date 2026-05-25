@@ -22,8 +22,9 @@ top-level keys. Nothing else.
 ```
 
 `metadata` and `workflows` are required (with at least one workflow). Everything
-else is optional. A runner MUST preserve any unknown keys inside `extensions`
-when it saves the file — that is the only compatibility rule.
+else is optional. A runner MUST preserve every top-level key it does not actively
+manage (and every unknown key inside `extensions`) when it saves the file —
+that is the only compatibility rule. See [The round-trip rule](#the-round-trip-rule).
 
 ---
 
@@ -36,7 +37,7 @@ File-level information.
   "metadata": {
     "format_version": "1.0.0",
     "workspace": "Acme Corp Books",
-    "spec_url": "https://github.com/workflowpeople/wfp-format/blob/main/new_simplified_spec.md",
+    "spec_url": "https://github.com/workflowpeople/wfp-format/blob/main/README.md",
     "exported_at": "2026-05-22T15:30:00.000Z",
     "period": "April 2026",
     "persona": "You are an experienced bookkeeper...",
@@ -128,13 +129,16 @@ extension (see §7).
 | Field             | Type   | Required | Description                                                                               |
 | ----------------- | ------ | -------- | ----------------------------------------------------------------------------------------- |
 | `id`              | string | Yes      | Unique within the workflow.                                                               |
-| `type`            | string | Yes      | `"start"`, `"end"`, `"tool"`, or `"prompt"`.                                              |
+| `type`            | string | Yes      | `"start"`, `"end"`, `"tool"`, or `"prompt"`. UI hint — does not affect dispatch.           |
 | `label`           | string | Yes      | Human-readable step name.                                                                 |
 | `step_order`      | number | Yes      | Execution order (1-based).                                                                |
-| `tool_id`         | string | No       | Tool to execute. Empty for start/end markers.                                             |
+| `tool_id`         | string | Yes      | Tool to execute. For start/end markers use `workflow_start` / `workflow_end`. See [§3 Reserved tool IDs](#reserved-tool-ids). |
 | `tool_config`     | object | No       | Static configuration (e.g., `{ "provider": "anthropic", "model": "claude-sonnet-4-6" }`). |
 | `tool_parameters` | object | No       | Runtime parameters. Values may reference data via `{{name}}`.                             |
 | `workflow_mgmt`   | object | No       | Approval, email, SLA, budget metadata. See below.                                         |
+
+Tool dispatch is always driven by `tool_id`. The `type` field is a UI hint only;
+runners MUST NOT use it to decide what to execute.
 
 ### Parameter references — `{{name}}`
 
@@ -168,12 +172,16 @@ A node may include a `workflow_mgmt` block with any of:
 
 Reusable units of executable logic. Three kinds of tools exist:
 
-- **Built-in tools** — `workflow_start`, `workflow_end`, `llm_step`,
-  `chat_download`, etc. Provided by the runtime. They do not appear in the
-  file; nodes simply reference them by `tool_id`.
+- **Built-in tools** — exactly four IDs reserved by this spec:
+  `workflow_start`, `workflow_end`, `llm_step`, `chat_download`. Provided
+  by the runtime. They do not appear in the file; nodes simply reference
+  them by `tool_id`. See [Reserved tool IDs](#reserved-tool-ids).
 - **Custom tools** — user-defined JavaScript. They DO appear in the file.
-- **Service tools** — wrappers around external HTTP services (GL, etc.). They
-  appear in the file as custom tools whose `code` calls `api.fetch()`.
+  Their `tool_id` MUST use the `ctool-*` prefix.
+- **Service tools** — wrappers around external HTTP services. They appear in
+  the file as custom tools whose `code` calls `api.fetch()` (typically with
+  an api-key read from `api.ext.secrets`). The spec treats them as ordinary
+  custom tools.
 
 ```json
 {
@@ -244,27 +252,89 @@ Reusable units of executable logic. Three kinds of tools exist:
 | `description` | string | No       |                                                                    |
 | `example`     | any    | No       |                                                                    |
 
+### Reserved tool IDs
+
+The following `tool_id` values are reserved by this spec. They name the
+runtime's built-in tools. A `.wfp` file MUST NOT declare a custom tool whose
+`tool_id` equals a reserved value, and a runner MUST refuse to load a file
+that does.
+
+| Tool ID           | What it does                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `workflow_start`  | Required first node of every workflow. Marks the entry point. `tool_parameters`: `{}`.                                        |
+| `workflow_end`    | Required last node of every workflow. Marks completion. `tool_parameters`: `{}`.                                              |
+| `llm_step`        | Calls the configured LLM with a prompt. `tool_parameters`: `{ prompt, data?, instructions?, context? }`. Sets the parameter `llm_response`. |
+| `chat_download`   | Presents a download to the user. `tool_parameters`: `{ data, filename, label?, inline? }`. Inline `"true"` renders HTML in-place. |
+
+Custom tools authored by users MUST use the `ctool-*` prefix. A runner
+resolves a node's `tool_id` in this order:
+
+1. The built-in registry above.
+2. The custom tools table (`tools[]`, where each entry's `tool_id` starts with `ctool-`).
+3. If neither matches, the runner MUST emit a clear `unknown tool_id` message and continue (skip the node) rather than crashing.
+
+Vendor- or app-specific built-ins are NOT permitted in `tool_id`. Apps that
+need to expose extra capabilities at runtime do so through the
+`api.ext.*` extension namespace described below — not by minting new
+`tool_id` values.
+
 ### The `api` object available to custom tool code
 
-| Method                                | Purpose                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------- |
-| `api.getParameter(name)`              | Read a parameter (from session, data, or knowledge).                            |
-| `api.setParameter(name, value)`       | Set a session-scoped value for downstream steps.                                |
-| `api.setData(name, value)`            | Persist data into the workspace's `data` map.                                   |
-| `api.addMessage(msg)`                 | Add a message (html / markdown / voice / table / chart) to the running session. |
-| `api.pauseForInput(msg)`              | Pause and prompt the user.                                                      |
-| `api.getKnowledge(name)`              | Read a knowledge pack by name.                                                  |
-| `api.llm.complete({ messages, ... })` | Call the LLM with a raw message list.                                           |
-| `api.llm.classify(opts)`              | Classify / categorize.                                                          |
-| `api.llm.summarize(opts)`             | Summarize text.                                                                 |
-| `api.fetch(url, opts)`                | HTTP request (for external API integrations).                                   |
-| `api.getSecret(name)`                 | Read an encrypted secret from settings.                                         |
-| `api.getChatHistory(n)`               | Recent chat turns from the active session.                                      |
-| `api.appendChat(turn)`                | Append a turn to the active session's messages.                                 |
+The runtime API is divided into a guaranteed core surface and an open
+extension namespace. Every conformant runner MUST provide every Tier 1 and
+Tier 2 method. Extensions are app-specific and OPTIONAL.
 
-External services (GL, payroll, etc.) are reached via `api.fetch()` plus a
-knowledge pack that documents the service's endpoints. There is no first-class
-GL section in the file format.
+#### Tier 1 — Core (every runner provides)
+
+| Method                            | Purpose                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `api.getParameter(name)`          | Read a parameter (unwrapped from its typed envelope).                                  |
+| `api.getParameterMeta(name)`      | Read envelope metadata: `{ type, columns?, rowCount?, length? }`.                      |
+| `api.setParameter(name, value)`   | Set a session-scoped value for downstream steps.                                       |
+| `api.setData(name, value)`        | Persist into the workspace's `data` map (round-trips back into the `.wfp` on save).    |
+| `api.addMessage(msg)`             | Append a message to the running session. Body shapes: `markdown`, `html`, `voice`, `table`, `chart`, `form`, `json`, `data`. Runners that don't render a given shape MUST degrade gracefully (e.g. render `voice` text as a log line). |
+| `api.fetch(url, opts)`            | HTTP request to an external service. Runners MUST block requests to private networks, enforce a 60-second timeout, and cap response bodies at 5 MB. Returns `{ status, headers, data, text }`. |
+
+#### Tier 2 — Required, universal
+
+| Method                                  | Purpose                                                                          |
+| --------------------------------------- | -------------------------------------------------------------------------------- |
+| `api.getKnowledge(name)`                | Return a knowledge pack's markdown content, or `null`.                           |
+| `api.llm.complete({ messages, ... })`   | Call the LLM with a raw message list. Returns `{ text, model, usage }`.          |
+| `api.getChatHistory(limit?)`            | Recent chat turns from the active session. Returns `[]` if no chat session.      |
+| `api.appendChat({ role, content })`     | Append a turn to the active session's chat. Lazily creates the session if absent.|
+| `api.pauseForInput(msg)`                | Pause the workflow, show a form/prompt, resume when the user submits. Pause state lives in the session. |
+
+#### Extensions — `api.ext.*`
+
+Apps may register additional capabilities under the `api.ext` namespace.
+The core spec does NOT standardize what lives there — extensions are
+app-specific. Tool code that depends on an extension MUST check for its
+presence:
+
+```js
+const key = await api.ext?.secrets?.get?.("supabase");
+if (!key) {
+  api.addMessage({ markdown: "This workflow needs a **supabase** secret." });
+  return;
+}
+```
+
+A runner that does not register a given extension MUST leave the namespace
+key absent (not throw). This lets one `.wfp` file open in any runner and
+degrade gracefully where an extension is unavailable.
+
+**Common extensions observed in production**
+
+| Namespace          | Typical provider         | Methods                                                                       |
+| ------------------ | ------------------------ | ----------------------------------------------------------------------------- |
+| `api.ext.secrets`  | hosted app               | `get(name): Promise<string \| null>` — read a named secret from the user's vault. |
+| `api.ext.privacyMap` | hosted app             | Entity-masking layer (tokenize/untokenize around LLM calls).                  |
+
+External services (GL, payroll, vendor APIs, etc.) are reached via
+`api.fetch()` — typically with an api-key obtained from
+`api.ext.secrets.get()` — plus a knowledge pack that documents the service's
+endpoints. There is no first-class GL section in the file format.
 
 ---
 
@@ -358,6 +428,20 @@ Shared `.wfp` files typically include zero or a small handful of sessions
 
 Sessions are also the home for voice / chat history — a chat thread IS a
 session of type `"chat"`.
+
+### Session policy
+
+A runner MUST create a session whenever it persists runtime state that
+outlives the current workflow execution. This includes, at minimum:
+
+- chat / voice turns (via `api.appendChat`),
+- pause state from `api.pauseForInput` (so the run can be resumed after a
+  page reload or process restart),
+- any audit, replay, or progress data the runner exposes to the user.
+
+A runner that has no such state to persist (a pure "open file, run, see
+output, close" flow) MAY leave `sessions` empty. The choice is local to the
+runner — but if any runtime state is kept, it is kept here.
 
 ```json
 {
@@ -468,8 +552,9 @@ session of type `"chat"`.
 Anything that isn't one of the six core concepts above goes here. Each entry is
 namespaced by key. Runners ignore extensions they don't understand but **MUST
 preserve them byte-equivalent (or structurally equivalent JSON) on save** —
-this is what lets a simple runner edit a workflow in a file written by a
-feature-rich runner without losing data.
+this is one application of the broader [round-trip rule](#the-round-trip-rule)
+that lets a simple runner edit a workflow in a file written by a feature-rich
+runner without losing data.
 
 ```json
 {
@@ -542,17 +627,27 @@ A list of versioned external service identifiers the workspace expects (e.g.,
 suggestion to the runner about which external services to enable when the file
 loads.
 
-### The round-trip-unknown rule
+### The round-trip rule
 
 This is the only compatibility rule in the spec, and it is mandatory:
 
 > Any conformant runner that loads a `.wfp` file and writes it back MUST
-> preserve every key under `extensions` that it does not understand,
-> byte-equivalent (or structurally-equivalent JSON) to what it read.
+> preserve every top-level key it did not actively manage, and every key
+> inside `extensions` it did not understand, byte-equivalent (or
+> structurally-equivalent JSON) to what it read.
 
-A runner MAY transform keys it understands. It MUST NOT silently drop, rename,
-or restructure ones it does not. If a runner cannot guarantee preservation
-(e.g., file-size limits), it MUST refuse to save and surface a clear error.
+A runner MAY transform keys it actively manages. It MUST NOT silently drop,
+rename, or restructure ones it does not. If a runner cannot guarantee
+preservation (e.g., file-size limits), it MUST refuse to save and surface a
+clear error.
+
+**What this means in practice.** A browser-only runner that doesn't implement
+sessions still reads `sessions` on load and writes them back unchanged on save.
+A runner with no audit feature preserves `extensions.audit`. The principle: a
+runner is a visitor — it MUST NOT delete data that other apps in the ecosystem
+care about, even if it doesn't display or use that data itself. Only an
+explicit user action in the runner (e.g., "Clear sessions", "Delete this
+todo") may remove preserved data.
 
 ---
 
@@ -665,8 +760,9 @@ The smallest file the spec allows: `metadata` plus one workflow.
 A **conformant reader** MUST:
 
 - Parse files declaring `metadata.format_version === "1.0.0"`.
-- Preserve every key under `extensions` it does not understand, byte- or
-  structurally-equivalent, on save.
+- Preserve every top-level key it does not actively manage, and every key under
+  `extensions` it does not understand, byte- or structurally-equivalent, on
+  save. Only explicit user action may delete preserved data.
 - Treat unrecognized encryption envelopes as opaque preserved values.
 
 A **conformant writer** MUST:
@@ -677,7 +773,7 @@ A **conformant writer** MUST:
 - Use real JSON arrays and objects everywhere — no JSON-stringified arrays.
 - Use the snake_case key conventions defined in this spec.
 
-A writer that cannot preserve unknown extensions MUST refuse to save and
+A writer that cannot preserve unmanaged top-level keys or unknown extensions MUST refuse to save and
 surface a clear error.
 
 ---
@@ -689,7 +785,7 @@ A few things were left out so the format stays small. They live elsewhere:
 | Concern                         | Where it lives                                                                                                      |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | General Ledger data and reports | External service. Workflows reach it via `api.fetch()` and a knowledge pack that documents the service's endpoints. |
-| Capability/feature negotiation  | Not needed. The round-trip-unknown rule + an envelope-locked unknown is sufficient.                                 |
+| Capability/feature negotiation  | Not needed. The round-trip rule + an envelope-locked unknown is sufficient.                                         |
 | Database schema migrations      | Not the file format's concern.                                                                                      |
 | Multi-user / firm-level packs   | A future spec extension. For now, those are merged into `knowledge` at load time by the host environment.           |
 | Binary attachments              | Not in 1.0. Use a data URI inside `data.<name>.content` if needed.                                                  |
