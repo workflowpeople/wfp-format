@@ -6,7 +6,7 @@ knowledge that informs them, the sessions that have run, and any optional
 extensions a particular runner adds.
 
 The format is designed to be readable by a person opening the file in a text
-editor and clear to an AI receiving it pasted into a prompt. There are seven
+editor and clear to an AI receiving it pasted into a prompt. There are eight
 top-level keys. Nothing else.
 
 ```json
@@ -17,6 +17,7 @@ top-level keys. Nothing else.
   "data":       { ... },
   "knowledge":  [ ... ],
   "sessions":   [ ... ],
+  "todos":      [ ... ],
   "extensions": { ... }
 }
 ```
@@ -547,9 +548,49 @@ runner — but if any runtime state is kept, it is kept here.
 
 ---
 
-## 7. `extensions`
+## 7. `todos`
 
-Anything that isn't one of the six core concepts above goes here. Each entry is
+The workspace todo list — a top-level array of tasks the workspace is tracking.
+Todos are how a workspace decomposes a complex request into clickable steps:
+each entry can carry a pre-filled `instruction` that a runner uses to start a
+session. They are produced by planners, by AI follow-ups, by audits, or typed
+directly by the user, and they persist with the workspace across sessions.
+
+```json
+{
+  "todos": [
+    {
+      "id": "todo-1",
+      "label": "Build expense review workflow",
+      "instruction": "/wf-build categorize and review monthly expenses",
+      "status": "pending",
+      "sort_order": 0,
+      "source": "planner",
+      "category": "build"
+    }
+  ]
+}
+```
+
+### Todo
+
+| Field         | Type   | Required | Description                                                            |
+| ------------- | ------ | -------- | --------------------------------------------------------------------- |
+| `id`          | string | No       | Unique within the file.                                               |
+| `label`       | string | Yes      | Human-readable task name (shown in the list).                         |
+| `instruction` | string | No       | Pre-filled session instruction, e.g. `"/wf-build expense review"`.    |
+| `status`      | string | Yes      | `"pending"`, `"in_progress"`, `"done"`, or `"cancelled"`.             |
+| `sort_order`  | number | No       | Display order (0-based).                                              |
+| `source`      | string | No       | `"planner"`, `"user"`, `"audit"`, `"system"`, or `"session:<id>"`.    |
+| `category`    | string | No       | `"build"`, `"data"`, `"knowledge"`, `"review"`, or `"general"`.       |
+| `created_at`  | string | No       | ISO 8601 timestamp.                                                   |
+| `updated_at`  | string | No       | ISO 8601 timestamp.                                                   |
+
+---
+
+## 8. `extensions`
+
+Anything that isn't one of the seven core concepts above goes here. Each entry is
 namespaced by key. Runners ignore extensions they don't understand but **MUST
 preserve them byte-equivalent (or structurally equivalent JSON) on save** —
 this is one application of the broader [round-trip rule](#the-round-trip-rule)
@@ -565,17 +606,6 @@ runner without losing data.
       "default_workflow": "wf-dashboard",
       "theme": "dark"
     },
-    "todos": [
-      {
-        "id": "todo-1",
-        "label": "Build expense review workflow",
-        "instruction": "/wf-build categorize and review monthly expenses",
-        "status": "pending",
-        "sort_order": 0,
-        "source": "planner",
-        "category": "build"
-      }
-    ],
     "audit": [
       {
         "id": "evt-1",
@@ -594,7 +624,7 @@ runner without losing data.
 ### Naming rules
 
 - Extension keys are ASCII identifiers matching `[a-z0-9_]+`.
-- The reserved short keys are: `app`, `todos`, `audit`, `dashboard`, `modules`.
+- The reserved short keys are: `app`, `audit`, `dashboard`, `modules`.
 - Vendor-specific extensions MUST use a vendor prefix: `acme_*`.
 
 ### Standard extensions
@@ -606,10 +636,6 @@ shapes so other runners can preserve them sensibly.
 
 Per-workspace runner settings: wake word, default workflow, theme, etc. All
 fields are optional and runner-specific.
-
-#### `extensions.todos`
-
-Workspace todo list. Each: `{ id?, label, instruction?, status, sort_order?, source?, category?, created_at?, updated_at? }`. Status: `pending | in_progress | done | cancelled`.
 
 #### `extensions.audit`
 

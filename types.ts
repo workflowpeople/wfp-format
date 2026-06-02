@@ -23,6 +23,8 @@ export interface WfpFile {
   data?: Record<string, DataEntry>;
   knowledge?: KnowledgePack[];
   sessions?: Session[];
+  /** Workspace todo list — a first-class node (see {@link TodoEntry}). */
+  todos?: TodoEntry[];
   extensions?: Extensions;
 }
 
@@ -396,12 +398,13 @@ export interface FormField {
  * Optional, namespaced extensions. Runners MUST preserve any keys they do not
  * understand byte-equivalent (or structurally equivalent JSON) on save.
  *
- * The known short keys are reserved: app, todos, audit, dashboard, modules.
+ * The known short keys are reserved: app, audit, dashboard, modules.
  * Vendor-specific extensions MUST use a vendor prefix (e.g. `acme_payroll`).
+ *
+ * Note: `todos` was promoted to a top-level `.wfp` node (see {@link WfpFile}).
  */
 export interface Extensions {
   app?: AppExtension;
-  todos?: TodoEntry[];
   audit?: AuditEntry[];
   dashboard?: DashboardExtension;
   /** Versioned external service IDs the workspace expects, e.g. "wfp_gl:1.0". */
