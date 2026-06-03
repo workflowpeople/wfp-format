@@ -424,12 +424,29 @@ export interface AppExtension {
 
 export type TodoStatus = "pending" | "in_progress" | "done" | "cancelled";
 
+/**
+ * What a todo does when clicked, and how it completes:
+ * - "triage": opens a chat and routes the instruction through triage (e.g. a
+ *   /plan or /wf-build step). Completes when the chat operation finishes.
+ * - "manual": a user-entered checklist item. Completes when checked off.
+ * - "workflow": runs the linked `workflow_id`. Completes from the run's
+ *   sign-off (Satisfied → done, Not satisfied → reopened).
+ */
+export type TodoType = "triage" | "manual" | "workflow";
+
 export interface TodoEntry {
   id?: string;
   label: string;
   /** Pre-filled session instruction (e.g. "/wf-build expense review"). */
   instruction?: string;
   status: TodoStatus;
+  /**
+   * Behavior on click + completion semantics. Defaults to "triage" when
+   * absent (back-compat: every pre-existing todo opened a chat).
+   */
+  type?: TodoType;
+  /** Target workflow for `type: "workflow"` todos (the workflow a click runs). */
+  workflow_id?: string;
   /** Display order (0-based). */
   sort_order?: number;
   /** "planner" | "user" | "audit" | "system" | "session:<id>". */

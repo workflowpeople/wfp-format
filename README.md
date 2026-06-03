@@ -564,9 +564,19 @@ directly by the user, and they persist with the workspace across sessions.
       "label": "Build expense review workflow",
       "instruction": "/wf-build categorize and review monthly expenses",
       "status": "pending",
+      "type": "triage",
       "sort_order": 0,
       "source": "planner",
       "category": "build"
+    },
+    {
+      "id": "todo-2",
+      "label": "FY26 Q2 Close · @Mary — Depreciation Schedule",
+      "status": "pending",
+      "type": "workflow",
+      "workflow_id": "wf-dep-1",
+      "sort_order": 1,
+      "source": "system"
     }
   ]
 }
@@ -580,11 +590,16 @@ directly by the user, and they persist with the workspace across sessions.
 | `label`       | string | Yes      | Human-readable task name (shown in the list).                         |
 | `instruction` | string | No       | Pre-filled session instruction, e.g. `"/wf-build expense review"`.    |
 | `status`      | string | Yes      | `"pending"`, `"in_progress"`, `"done"`, or `"cancelled"`.             |
+| `type`        | string | No       | Click behavior + completion. `"triage"` (default) opens a chat with `instruction`; `"manual"` is a checklist item; `"workflow"` runs `workflow_id` and completes from the run's sign-off. |
+| `workflow_id` | string | No       | Target workflow for `type: "workflow"` todos.                        |
 | `sort_order`  | number | No       | Display order (0-based).                                              |
 | `source`      | string | No       | `"planner"`, `"user"`, `"audit"`, `"system"`, or `"session:<id>"`.    |
 | `category`    | string | No       | `"build"`, `"data"`, `"knowledge"`, `"review"`, or `"general"`.       |
 | `created_at`  | string | No       | ISO 8601 timestamp.                                                   |
 | `updated_at`  | string | No       | ISO 8601 timestamp.                                                   |
+
+An owner is **not** a field — write it into the `label` (free text, e.g.
+`"@Mary — …"`).
 
 ---
 
