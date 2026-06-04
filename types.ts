@@ -457,6 +457,11 @@ export interface TodoEntry {
   instance_name?: string;
   creating_workflow?: string;
   tag?: string;
+  /** Optional target/due date for this task (ISO `YYYY-MM-DD`). Display only. */
+  due_date?: string;
+  /** Free-form human notes (e.g. "Use 7%"). Documentation only — never passed
+   *  to a workflow run or interpreted by the runner. */
+  notes?: string;
   /** Display order (0-based). */
   sort_order?: number;
   /** "planner" | "user" | "audit" | "system" | "session:<id>". */
