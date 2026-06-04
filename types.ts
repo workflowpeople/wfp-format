@@ -462,6 +462,8 @@ export interface TodoEntry {
   /** Free-form human notes (e.g. "Use 7%"). Documentation only — never passed
    *  to a workflow run or interpreted by the runner. */
   notes?: string;
+  /** Estimated effort in hours (may be fractional, e.g. 1.5). Display only. */
+  hours?: number;
   /** Display order (0-based). */
   sort_order?: number;
   /** "planner" | "user" | "audit" | "system" | "session:<id>". */
