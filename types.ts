@@ -447,6 +447,16 @@ export interface TodoEntry {
   type?: TodoType;
   /** Target workflow for `type: "workflow"` todos (the workflow a click runs). */
   workflow_id?: string;
+  /**
+   * Analytics fields — any workflow that creates todos can stamp these so a
+   * dashboard can group/slice them:
+   * - `instance_name`: the named run that produced this todo (e.g. "Qtr 2 Close").
+   * - `creating_workflow`: name of the workflow that created the todo.
+   * - `tag`: a single free-form string for additional grouping.
+   */
+  instance_name?: string;
+  creating_workflow?: string;
+  tag?: string;
   /** Display order (0-based). */
   sort_order?: number;
   /** "planner" | "user" | "audit" | "system" | "session:<id>". */

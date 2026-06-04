@@ -571,10 +571,13 @@ directly by the user, and they persist with the workspace across sessions.
     },
     {
       "id": "todo-2",
-      "label": "FY26 Q2 Close · @Mary — Depreciation Schedule",
+      "label": "Depreciation Schedule",
       "status": "pending",
       "type": "workflow",
       "workflow_id": "wf-dep-1",
+      "instance_name": "FY26 Q2 Close",
+      "creating_workflow": "Close Manager",
+      "tag": "@Mary",
       "sort_order": 1,
       "source": "system"
     }
@@ -592,14 +595,17 @@ directly by the user, and they persist with the workspace across sessions.
 | `status`      | string | Yes      | `"pending"`, `"in_progress"`, `"done"`, or `"cancelled"`.             |
 | `type`        | string | No       | Click behavior + completion. `"triage"` (default) opens a chat with `instruction`; `"manual"` is a checklist item; `"workflow"` runs `workflow_id` and completes from the run's sign-off. |
 | `workflow_id` | string | No       | Target workflow for `type: "workflow"` todos.                        |
+| `instance_name` | string | No     | Analytics: the named run that produced this todo (e.g. `"Qtr 2 Close"`). |
+| `creating_workflow` | string | No | Analytics: name of the workflow that created the todo.                |
+| `tag`         | string | No       | Analytics: a single free-form grouping string (e.g. `"@Mary"`).      |
 | `sort_order`  | number | No       | Display order (0-based).                                              |
 | `source`      | string | No       | `"planner"`, `"user"`, `"audit"`, `"system"`, or `"session:<id>"`.    |
 | `category`    | string | No       | `"build"`, `"data"`, `"knowledge"`, `"review"`, or `"general"`.       |
 | `created_at`  | string | No       | ISO 8601 timestamp.                                                   |
 | `updated_at`  | string | No       | ISO 8601 timestamp.                                                   |
 
-An owner is **not** a field — write it into the `label` (free text, e.g.
-`"@Mary — …"`).
+There is no dedicated owner field — an owner is just a `tag` (free text, e.g.
+`"@Mary"`). The `label` stays the plain task/workflow name.
 
 ---
 
