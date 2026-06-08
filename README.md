@@ -17,7 +17,7 @@ top-level keys. Nothing else.
   "data":       { ... },
   "knowledge":  [ ... ],
   "sessions":   [ ... ],
-  "todos":      [ ... ],
+  "todos":      { "plan": [ ... ], "workflow": [ ... ], "other": [ ... ] },
   "extensions": { ... }
 }
 ```
@@ -550,38 +550,57 @@ runner — but if any runtime state is kept, it is kept here.
 
 ## 7. `todos`
 
-The workspace todo list — a top-level array of tasks the workspace is tracking.
-Todos are how a workspace decomposes a complex request into clickable steps:
-each entry can carry a pre-filled `instruction` that a runner uses to start a
-session. They are produced by planners, by AI follow-ups, by audits, or typed
-directly by the user, and they persist with the workspace across sessions.
+The workspace todos — how a workspace decomposes work into clickable steps: each
+entry can carry a pre-filled `instruction` that a runner uses to start a session.
+They are produced by planners, by AI follow-ups, by audits, or typed directly by
+the user, and they persist with the workspace across sessions.
+
+The node is an **object of three arrays** (not one flat list). A todo's bucket is
+determined by its `type` — a lossless grouping, so there is **no separate stored
+bucket field**:
+
+| Bucket     | `type`       | What it holds                                                        |
+| ---------- | ------------ | ------------------------------------------------------------------- |
+| `plan`     | `"triage"`   | The simple "divide up the work" list (e.g. `/plan` or build steps). |
+| `workflow` | `"workflow"` | Coordination + long-term analytics; the "enterprise" view.          |
+| `other`    | `"manual"`   | Everything else (free checklist items).                             |
+
+Absent `type` is treated as `"triage"` (→ `plan`). A writer places each entry in
+`todos[bucketOf(entry.type)]`; a reader that wants every todo simply concatenates
+the three arrays. The buckets are kept separate because their shape and
+presentation are expected to diverge over time.
 
 ```json
 {
-  "todos": [
-    {
-      "id": "todo-1",
-      "label": "Build expense review workflow",
-      "instruction": "/wf-build categorize and review monthly expenses",
-      "status": "pending",
-      "type": "triage",
-      "sort_order": 0,
-      "source": "planner",
-      "category": "build"
-    },
-    {
-      "id": "todo-2",
-      "label": "Depreciation Schedule",
-      "status": "pending",
-      "type": "workflow",
-      "workflow_id": "wf-dep-1",
-      "instance_name": "FY26 Q2 Close",
-      "creating_workflow": "Close Manager",
-      "tag": "@Mary",
-      "sort_order": 1,
-      "source": "system"
-    }
-  ]
+  "todos": {
+    "plan": [
+      {
+        "id": "todo-1",
+        "label": "Build expense review workflow",
+        "instruction": "/wf-build categorize and review monthly expenses",
+        "status": "pending",
+        "type": "triage",
+        "sort_order": 0,
+        "source": "planner",
+        "category": "build"
+      }
+    ],
+    "workflow": [
+      {
+        "id": "todo-2",
+        "label": "Depreciation Schedule",
+        "status": "pending",
+        "type": "workflow",
+        "workflow_id": "wf-dep-1",
+        "instance_name": "FY26 Q2 Close",
+        "creating_workflow": "Close Manager",
+        "tag": "@Mary",
+        "sort_order": 1,
+        "source": "system"
+      }
+    ],
+    "other": []
+  }
 }
 ```
 

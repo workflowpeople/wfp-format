@@ -23,8 +23,9 @@ export interface WfpFile {
   data?: Record<string, DataEntry>;
   knowledge?: KnowledgePack[];
   sessions?: Session[];
-  /** Workspace todo list — a first-class node (see {@link TodoEntry}). */
-  todos?: TodoEntry[];
+  /** Workspace todos — a first-class node, bucketed by kind (see
+   *  {@link TodoBuckets}). Each bucket is an array of {@link TodoEntry}. */
+  todos?: TodoBuckets;
   extensions?: Extensions;
 }
 
@@ -472,6 +473,28 @@ export interface TodoEntry {
   category?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+/**
+ * The top-level `todos` node: an object of three arrays rather than one flat
+ * list. A todo's bucket is determined by its {@link TodoType} (a lossless
+ * grouping — there is no separate stored bucket field):
+ *
+ * - `plan`     ← `type: "triage"`   — the simple "divide up the work" list
+ *   (e.g. `/plan` or build steps). Short-lived; minimal UI.
+ * - `workflow` ← `type: "workflow"` — coordination + long-term analytics; the
+ *   list a host may surface as an "enterprise" / cross-workspace view.
+ * - `other`    ← `type: "manual"`   — everything else (free checklist items).
+ *
+ * The buckets are kept separate on disk because their shape and presentation
+ * are expected to diverge. A writer assigns each entry to `buckets[bucketOf(
+ * entry.type)]`; a reader that just wants every todo can concatenate the three
+ * arrays. Absent `type` is treated as `"triage"` (→ `plan`).
+ */
+export interface TodoBuckets {
+  plan: TodoEntry[];
+  workflow: TodoEntry[];
+  other: TodoEntry[];
 }
 
 export interface AuditEntry {
